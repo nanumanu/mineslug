@@ -19,6 +19,13 @@ char* levels[NUM_LEVELS] = {
 Vector2 initial_position = {0, 0};
 
 typedef enum {
+    UP,
+    RIGHT,
+    DOWN,
+    LEFT
+} Direction;
+
+typedef enum {
     EMPTY,
     WALL,
     PLAYER,
@@ -35,8 +42,16 @@ typedef enum {
     WON
 } Status;
 
+typedef struct {
+    Vector2 position;
+    Direction direction;
+    bool isActive;
+} Laser;
+
 typedef struct player {
     Vector2 position;
+    Direction direction;
+    Laser laser;
     int level;
     int score;
     int lives;
@@ -49,20 +64,14 @@ typedef struct mole {
     int isAlive;
 } Mole;
 
-typedef struct collect {
-    Vector2 position;
-    bool isCollected;
-} Collectable;
-
 typedef struct game {
+    bool powered;
     int mole_num;
+    int total_emeralds;
     Status activity;
     char map[MAP_HEIGHT][MAP_WIDTH + 1];
     Player player;
     Mole moles[MAX_TROPHIES];
-    Collectable powerUps[MAX_TROPHIES],
-                emeralds[MAX_TROPHIES],
-                golds[MAX_TROPHIES];
 } Game;
 
 void LoadGameMap(const char* filename, Game* session);
@@ -81,9 +90,69 @@ void resetGame(Game *session) {
     session->player.score = 0;
     session->player.lives = 3;
     session->player.emeralds = 0;
+    session->total_emeralds = 0;
     session->player.golds = 0;
     session->player.position = initial_position;
+    session->player.direction = DOWN;
+    session->powered = false;
     session->activity = RUNNING;
+}
+
+void drawLaser(Game session) {
+    if (session.player.laser.isActive) {
+        DrawCircleV(session.player.laser.position, 7.0, VIOLET);          
+    }
+}
+
+void fireLaser(Game *session) {
+    if (!session->player.laser.isActive) {
+        session->player.laser.position.y = session->player.position.y + 20;
+        session->player.laser.position.x = session->player.position.x + 20;
+        session->player.laser.direction = session->player.direction;
+        session->player.laser.isActive = true;
+    }
+}
+
+void updateLaser(Game *session) {
+    if (!session->player.laser.isActive) return;
+
+    // Avança o laser na direção em que foi disparado
+    switch(session->player.laser.direction) {
+        case UP:
+            session->player.laser.position.y -= TILE_SIZE;
+            break;
+        case DOWN:
+            session->player.laser.position.y += TILE_SIZE;
+            break;
+        case LEFT:
+            session->player.laser.position.x -= TILE_SIZE;
+            break;
+        case RIGHT:
+            session->player.laser.position.x += TILE_SIZE;
+            break;
+    }
+
+    // Verifica colisão com toupeiras
+    for (int i = 0; i < session->mole_num; i++) {
+        if (session->moles[i].isAlive && CheckCollisionRecs((Rectangle){session->player.laser.position.x, session->player.laser.position.y, TILE_SIZE, TILE_SIZE},
+                                                             (Rectangle){session->moles[i].position.x, session->moles[i].position.y, TILE_SIZE, TILE_SIZE})) {
+            session->moles[i].isAlive = false;
+            session->player.laser.isActive = false; // Laser desativado após acertar uma toupeira
+            return;
+        }
+    }
+
+    // Verifica colisão com minérios
+    int x = session->player.laser.position.x / TILE_SIZE;
+    int y = session->player.laser.position.y / TILE_SIZE;
+    if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
+        char tile = session->map[y][x];
+        switch (tile) {
+            case 'S': session->map[y][x] = ' ';
+            case '#': session->player.laser.isActive = false; // Laser desativado
+            default: break;
+        }
+    }
 }
 
 int main() {
@@ -95,7 +164,7 @@ int main() {
     LoadGameMap(levels[0], &session);
     resetGame(&session);
     InitWindow(screenWidth, screenHeight, "Pacmine");
-    SetTargetFPS(10);
+    SetTargetFPS(7);
     bool loaded = true;
     
     // Loop principal do jogo
@@ -109,6 +178,7 @@ int main() {
         loaded = DrawGameMap(session);
         
         // Desenha elementos
+        drawLaser(session);
         drawObject(session.player.position, RED);
         for (int i = 0; i < session.mole_num; i++) {
             if (session.moles[i].isAlive) {
@@ -232,12 +302,14 @@ void updateGame(Game *session) {
     int dy = 0;
 
     //Switch case para processar as entradas do teclado
-    if (IsKeyDown(KEY_UP))      dy = -TILE_SIZE;
-    if (IsKeyDown(KEY_DOWN))    dy = TILE_SIZE;
-    if (IsKeyDown(KEY_LEFT))    dx = -TILE_SIZE;
-    if (IsKeyDown(KEY_RIGHT))   dx = TILE_SIZE;
+    if (IsKeyDown(KEY_UP))    { dy = -TILE_SIZE; session->player.direction = UP; }
+    if (IsKeyDown(KEY_DOWN))  { dy = TILE_SIZE;  session->player.direction = DOWN; }
+    if (IsKeyDown(KEY_LEFT))  { dx = -TILE_SIZE; session->player.direction = LEFT; }
+    if (IsKeyDown(KEY_RIGHT)) { dx = TILE_SIZE;  session->player.direction = RIGHT; }
+    if (IsKeyDown(KEY_G))       fireLaser(session); 
 
     //função movePlayer com base nas entradas do teclado
+    updateLaser(session);
     movePlayer(session, dx, dy);
     updateMoles(session);
 }
@@ -259,12 +331,13 @@ void LoadGameMap(const char* filename, Game* session) {
                 initial_position.y = y * TILE_SIZE;
                 session->map[y][x] = ' '; // Remove a posição inicial do jogador do mapa
             }
-            else if(session->map[y][x] == 'T') {
+            else if (session->map[y][x] == 'T') {
                 session->moles[mole_num].position.x = x * TILE_SIZE;
                 session->moles[mole_num].position.y = y * TILE_SIZE;
                 session->map[y][x] = ' ';
                 mole_num++;
             }
+            else if (session->map[y][x] == 'E') session->total_emeralds += 1;
         }
     }
     session->mole_num = mole_num;
@@ -287,10 +360,10 @@ void drawEndGameScreen(Game *session) {
 }
 
 void checkNextLevel(Game *session) {
-    if (session->player.emeralds != session->mole_num) 
+    if (session->player.emeralds != session->total_emeralds) 
         return;
     else if(session->player.level != 3) {
-        LoadGameMap(map_files[session->player.level], session); // To be replaced with the next level's map
+        LoadGameMap(levels[session->player.level], session); // To be replaced with the next level's map
         session->player.level += 1;
         resetGame(session);
     }
@@ -315,4 +388,11 @@ void movePlayer(Game *session, int dx, int dy) {
     session->player.position.y = newY;
 
     // Verificacao de tesouro na nova posição e fazer a coleta se houver.
+    switch (session->map[newY][newX]) {
+        case 'E': session->player.score += 50;
+        case 'O': session->player.score += 50;
+        case 'A': session->powered = true;
+        default: session->map[newY][newX] = ' ';   ////////////////////ta crashando e precisa
+                                                   ////////////////////adcionar o soterro dos items
+    }
  }
