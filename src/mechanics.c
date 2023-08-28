@@ -3,6 +3,20 @@
 #include <unistd.h>
 #include "../libs/mechanics.h"
 
+extern void nextLevel(Game *session);
+extern bool LoadGameMap(int level, Game* session);
+
+void checkNextLevel(Game *session) {
+    if (session->player.emeralds == session->total_emeralds) {
+        session->player.level += 1;
+        if (LoadGameMap(session->player.level, session)) {
+            nextLevel(session);
+        } else {
+            session->activity = WON;
+        }
+    }
+}
+
 void drawLaser(Game session) {
     if (session.player.laser.isActive) {
         DrawCircleV(session.player.laser.position, 7.0, VIOLET);          
@@ -11,8 +25,8 @@ void drawLaser(Game session) {
 
 void fireLaser(Game *session) {
     if (!session->player.laser.isActive) {
-        session->player.laser.position.y = session->player.position.y;
-        session->player.laser.position.x = session->player.position.x;
+        session->player.laser.position.y = session->player.position.y + 20;
+        session->player.laser.position.x = session->player.position.x + 20;
         session->player.laser.direction = session->player.direction;
         session->player.laser.isActive = true;
     }
@@ -46,15 +60,24 @@ void updateLaser(Game *session) {
             return;
         }
     }
-
     // Verifica colisão com minérios
     int x = session->player.laser.position.x / TILE_SIZE;
     int y = session->player.laser.position.y / TILE_SIZE;
     if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
         char tile = session->map[y][x];
         switch (tile) {
-            case 'S': session->map[y][x] = ' ';
-            case '#': session->player.laser.isActive = false; // Laser desativado
+            case 'S': 
+                session->map[y][x] = ' ';
+            case '#': 
+                session->player.laser.isActive = false; // Laser desativado
+                break;
+            case 'E': // Esmeralda 
+            case 'O': // Ouro
+                if(session->minerals[y][x].soterrado) {
+                    session->minerals[y][x].soterrado = false;
+                    session->player.laser.isActive = false; 
+                } 
+                break;
             default: break;
         }
     }
@@ -70,18 +93,24 @@ bool IsWalkable(Game *session, int x, int y) {
         return false; // Fora dos limites do mapa
 
     char tile = session->map[y][x];
-    return (tile != '#') && (tile != 'S');
+    Mineral mineral = session->minerals[y][x];
+    if(mineral.type == EMERALD || mineral.type == GOLDD) return !mineral.soterrado;
+    else return (tile != '#') && (tile != 'S');
 }
 
 void updateMoles(Game *session) {
     for (int i = 0; i < session->mole_num; i++) {
         if(session->moles[i].isAlive) {
             // Decidir um movimento aleatório para a mole (para cima, para baixo, para a esquerda ou para a direita)
-            int direction = GetRandomValue(0, 3); 
+            if(session->moles[i].change == 0){
+                session->moles[i].direction = (session->moles[i].direction + 1) % 4;
+                session->moles[i].change = 5;
+            }
+            
             int dx = 0;
             int dy = 0;
 
-            switch(direction) {
+            switch(session->moles[i].direction) {
                 case 0: // Para cima
                     dy = -TILE_SIZE;
                     break;
@@ -99,6 +128,7 @@ void updateMoles(Game *session) {
             // Calcula a nova posição da mole.
             int newX = session->moles[i].position.x + dx;
             int newY = session->moles[i].position.y + dy;
+            session->moles[i].change--;
 
             // Verifica se a nova posição é válida, e se for, move a mole.
             if(IsWalkable(session, newX, newY)) {
@@ -113,20 +143,46 @@ void updateMoles(Game *session) {
                     session->player.lives -= 1;
                     session->player.position = initial_position;
                 }
+            } 
+            else {
+                session->moles[i].direction = (session->moles[i].direction + 1) % 4;
+                session->moles[i].change = 5;
             }
         }
     }
 }
+ 
 
+//função moveplayer editada para o jogador coletar as esmeraldas e golds
 void movePlayer(Game *session, int dx, int dy) {
-    // Primeiro, calcule a nova posição do jogador.
     int newX = session->player.position.x + dx;
     int newY = session->player.position.y + dy;
-
-    // Verificação se a nova posição está dentro dos limites do terreno e não é uma parede.
-    if (!IsWalkable(session, newX, newY)) return;
-
-    // Move o jogador para a nova posição.
-    session->player.position.x = newX;
-    session->player.position.y = newY;
- }
+    
+    if (IsWalkable(session, newX, newY)) {
+        // Coletando esmeraldas e ouro
+        int tileX = newX / TILE_SIZE;
+        int tileY = newY / TILE_SIZE;
+        
+        if (session->minerals[tileY][tileX].type == EMERALD && 
+            session->minerals[tileY][tileX].soterrado == false &&
+            session->minerals[tileY][tileX].coletado == false) {
+            session->player.emeralds++;
+            session->player.score += 200;
+            session->minerals[tileY][tileX].coletado = true;
+            checkNextLevel(session);
+        } else if (session->minerals[tileY][tileX].type == GOLDD && 
+        session->minerals[tileY][tileX].soterrado == false &&
+            session->minerals[tileY][tileX].coletado == false) {
+            session->player.golds++;
+            session->player.score += 100;
+            session->minerals[tileY][tileX].coletado = true;
+        } else if (session->minerals[tileY][tileX].type == POWERUP && 
+            session->minerals[tileY][tileX].coletado == false) {
+            session->minerals[tileY][tileX].coletado = true;
+            session->powered = GetFPS() * 5;
+        }
+        
+        session->player.position.x = newX;
+        session->player.position.y = newY;
+    }
+}

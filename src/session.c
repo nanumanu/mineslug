@@ -4,12 +4,6 @@
 #include "../libs/session.h"
 #include "../libs/mechanics.h"
 
-char* levels[] = {
-    "maps/map1.txt", 
-    "maps/map2.txt", 
-    "maps/map3.txt"
-};
-
 Vector2 initial_position = {0, 0};
 
 void resetGame(Game *session) {
@@ -19,42 +13,55 @@ void resetGame(Game *session) {
     session->player.emeralds = 0;
     session->total_emeralds = 0;
     session->player.golds = 0;
+    nextLevel(session);
+    session->activity = RUNNING;
+}
+
+
+void nextLevel(Game *session) {
     session->player.position = initial_position;
     session->player.direction = DOWN;
     session->powered = false;
-    session->activity = RUNNING;
 }
 
 bool DrawGameMap(Game session) {
     bool continueRunning = true;
     for (int y = 0; y < MAP_HEIGHT; y++) {
-        int x = 0;
-        while (x < MAP_WIDTH) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
             Vector2 position = { x * TILE_SIZE, y * TILE_SIZE};
-            switch (session.map[y][x]) {
-                case '#':
-                    // Desenhar parede indestrutivel
-                    drawObject(position, BLACK);
-                    break;
-                case 'O':
-                    // Desenhar minério de ouro
-                    drawObject(position, GOLD);
-                    break;
-                case 'E':
-                    // Desenhar esmeralda
-                    drawObject(position, DARKGREEN);
-                    break;
-                case 'S':
-                    // Desenhar área soterrada
-                    drawObject(position, LIGHTGRAY);
-                    break;
-                case 'A':
-                    // Desenhar power-up
-                    drawObject(position, SKYBLUE);
-                    break;
-                default: break;
-            }
-            x++;
+            //if(Vector2Distance(session.player.position, (Vector2){x, y}) < 80 &&  || session.powered)) {
+                switch (session.map[y][x]) {
+                    case '#':
+                        // Desenhar parede indestrutivel
+                        drawObject(position, BLACK);
+                        break;
+                    case 'S':
+                        // Desenhar área soterrada
+                        drawObject(position, LIGHTGRAY);
+                        break;
+                    case 'E':
+                        // Desenhar esmeralda
+                        if(session.minerals[y][x].coletado);
+                        else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
+                        else drawObject(position, DARKGREEN);
+                        break;
+                    case 'O':
+                        // Desenhar ouro
+                        if(session.minerals[y][x].coletado);
+                        else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
+                        else drawObject(position, GOLD);
+                        break;
+                    case 'A':
+                        // Desenhar power-up
+                        if(!session.minerals[y][x].coletado)
+                            drawObject(position, SKYBLUE);
+                        break;
+                    default: break;
+                }
+            //}
+            //else {
+            //    drawObject(position, BLACK);
+            //}
         }
     }
 
@@ -77,18 +84,39 @@ void updateGame(Game *session) {
     if (IsKeyDown(KEY_G))       fireLaser(session); 
 
     //função movePlayer com base nas entradas do teclado
+    if(session->powered) session->powered--;
     updateLaser(session);
     movePlayer(session, dx, dy);
     updateMoles(session);
 }
 
-void LoadGameMap(const char* filename, Game* session) {
-    FILE* file = fopen(filename, "r");
+bool LoadGameMap(int level, Game* session) {
+    char fname[20];
+    sprintf(fname,"maps/%s%d.%s","map",level,"txt");
+    FILE* file = fopen(fname, "r");
     int mole_num = 0;
     
     if (!file) {
-        printf("Erro ao abrir arquivo do mapa.\n");
-        exit(EXIT_FAILURE);
+        if(level == 1) {
+            printf("Erro ao abrir arquivo do mapa.\n");
+            exit(EXIT_FAILURE);
+        }
+        else {
+            return false;
+        }
+    }
+    
+    if (level > 1){
+        for(int i = 0; i < mole_num; i++){
+            session->moles[mole_num].isAlive = false;
+        }
+        
+        for (int y = 0; y < MAP_HEIGHT; y++) {
+            for(int x = 0; x < MAP_WIDTH; x++) {
+                session->map[y][x] = ' ';
+                session->minerals[y][x].type = EMPTY;
+            }
+        }
     }
     
     for (int y = 0; y < MAP_HEIGHT; y++) {
@@ -102,41 +130,51 @@ void LoadGameMap(const char* filename, Game* session) {
             else if (session->map[y][x] == 'T') {
                 session->moles[mole_num].position.x = x * TILE_SIZE;
                 session->moles[mole_num].position.y = y * TILE_SIZE;
+                session->moles[mole_num].direction = GetRandomValue(0, 3); 
+                session->moles[mole_num].isAlive = true;
+                session->moles[mole_num].change = 5;
                 session->map[y][x] = ' ';
                 mole_num++;
             }
-            else if (session->map[y][x] == 'E') session->total_emeralds += 1;
+            else if (session->map[y][x] == 'O') {
+                session->minerals[y][x].type = GOLDD;
+                session->minerals[y][x].soterrado = true;
+                session->minerals[y][x].coletado = false;
+            }
+            else if (session->map[y][x] == 'E') {
+                session->minerals[y][x].type = EMERALD;
+                session->minerals[y][x].soterrado = true;
+                session->minerals[y][x].coletado = false;
+                session->total_emeralds += 1;
+            }
+            else if (session->map[y][x] == 'A') {
+                session->minerals[y][x].type = POWERUP;
+                session->minerals[y][x].soterrado = false;
+                session->minerals[y][x].coletado = false;
+            }
         }
     }
     session->mole_num = mole_num;
     fclose(file);
+    return true;
 }
 
 void drawEndGameScreen(Game *session) {
     BeginDrawing();
     ClearBackground(RAYWHITE);
     if (session->activity == WON) {
-        DrawText("You won!", 10, 10, 20, DARKGREEN);
+        DrawText("You won!", (MAP_WIDTH * TILE_SIZE)/2 - 100, (MAP_HEIGHT * TILE_SIZE)/2 - 50, 50, DARKGREEN);
     } else {
-        DrawText("You lost!", 10, 10, 20, DARKPURPLE);
+        DrawText("You lost!", (MAP_WIDTH * TILE_SIZE)/2 - 100, (MAP_HEIGHT * TILE_SIZE)/2 - 50, 50, DARKPURPLE);
     }
-    DrawText(TextFormat("Final Score: %i", session->player.score), 10, 40, 20, BLACK);
+    DrawText(TextFormat("Final Score: %i", session->player.score), 
+                        (MAP_WIDTH* TILE_SIZE)/2 - 130, (MAP_HEIGHT * TILE_SIZE)/2 + 20, 40, BLACK);
     EndDrawing();
+    WaitTime(5);
     CloseWindow();
     exit(0);
 }
 
-void checkNextLevel(Game *session) {
-    if (session->player.emeralds != session->total_emeralds) 
-        return;
-    else if(session->player.level != 3) {
-        LoadGameMap(levels[session->player.level], session); // To be replaced with the next level's map
-        session->player.level += 1;
-        resetGame(session);
-    }
-    else
-        session->activity = WON;
-}
 
 void UnloadGameMap(Game* session) {
     // Libera recursos se necessário

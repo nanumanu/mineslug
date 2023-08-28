@@ -6,13 +6,14 @@
 #include "libs/mechanics.h"
 #include "libs/session.h"
 
+
 int main() {
     // Inicialização do jogo
-    const int screenWidth = MAP_WIDTH * 40;
-    const int screenHeight = MAP_HEIGHT * 40;
+    const int screenWidth = MAP_WIDTH * TILE_SIZE;
+    const int screenHeight = MAP_HEIGHT * TILE_SIZE;
 
     Game session;
-    LoadGameMap(levels[0], &session);
+    LoadGameMap(1, &session);
     resetGame(&session);
     InitWindow(screenWidth, screenHeight, "MineSlug");
     SetTargetFPS(7);
@@ -20,7 +21,6 @@ int main() {
     
     // Loop principal do jogo
     while (!WindowShouldClose() && loaded && (session.activity == RUNNING)) {
-        
         updateGame(&session);
 
         // Renderização do jogo
@@ -42,6 +42,7 @@ int main() {
         DrawText(TextFormat("Score: %i", session.player.score), 7*TILE_SIZE, 10, 20, WHITE);
         DrawText(TextFormat("Emeralds: %i", session.player.emeralds), 23*TILE_SIZE, 10, 20, DARKGREEN);
         DrawText(TextFormat("Golds: %i", session.player.golds), 27*TILE_SIZE, 10, 20, GOLD);
+        DrawText(TextFormat("Total Emeralds: %i", session.total_emeralds), 25*TILE_SIZE, 19.25*TILE_SIZE, 20, DARKGREEN);
         EndDrawing();
     }
 
