@@ -1,10 +1,105 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include "../libs/structs.h"
 #include "../libs/session.h"
 #include "../libs/mechanics.h"
 
 Vector2 initial_position = {0, 0};
+
+// Function to save the game state to a text file
+bool saveGame(const Game *session) {
+    FILE *file = fopen("game.sav", "w");
+    
+    if (file == NULL) {
+        return false; // Failed to open the file
+    }
+
+    // Save game data to the file
+    fprintf(file, "level=%d\n", session->player.level);
+    fprintf(file, "score=%d\n", session->player.score);
+    fprintf(file, "lives=%d\n", session->player.lives);
+    fprintf(file, "emeralds=%d\n", session->player.emeralds);
+    fprintf(file, "total_emeralds=%d\n", session->total_emeralds);
+    fprintf(file, "golds=%d\n", session->player.golds);
+    fprintf(file, "positionx=%.0f\n", session->player.position.x);
+    fprintf(file, "positiony=%.0f\n", session->player.position.y);
+    fprintf(file, "moles=%d\n", session->mole_num);
+    for(int i = 0; i < session->mole_num; i++) {
+        fprintf(file, "mole_alive=%d\n", session->moles[i].isAlive);
+        if(session->moles[i].isAlive){
+            fprintf(file, "mole_x=%.0f\n", session->player.position.x);
+            fprintf(file, "mole_y=%.0f\n", session->player.position.y);
+            fprintf(file, "mole_dir=%d\n", session->moles[i].direction);
+            fprintf(file, "mole_cng=%d\n", session->moles[i].change);
+        }
+    }
+    fprintf(file, "-----\n");
+    for(int y = 0; y < MAP_HEIGHT; y++) {
+        for(int x = 0; x < MAP_WIDTH; x++) {
+            fprintf(file, "%c", session->map[y][x]);
+        }
+        fprintf(file, "\n");
+    }
+    fprintf(file, "-----\n");
+    for(int y = 0; y < MAP_HEIGHT; y++) {
+        for(int x = 0; x < MAP_WIDTH; x++) {
+            if((session->minerals[y][x].type == EMERALD) ||
+               (session->minerals[y][x].type == GOLDD) ||
+               (session->minerals[y][x].type == POWERUP))
+            fprintf(file, "min_type=%d\n", session->minerals[y][x].type);
+            fprintf(file, "min_x=%d\n", x * TILE_SIZE);
+            fprintf(file, "min_y=%d\n", y * TILE_SIZE);
+            fprintf(file, "min_sot=%d\n", session->minerals[y][x].soterrado);
+            fprintf(file, "min_col=%d\n", session->minerals[y][x].coletado);
+        }
+    }
+
+    fclose(file);
+    return true;
+}
+
+// Function to load the game state from a text file
+bool loadGame(Game *session) {
+    FILE *file = fopen("game.sav", "r");
+    
+    if (file == NULL) {
+        return false; // Failed to open the file
+    }
+
+    // Read and update game data from the file
+    char buffer[100]; // Adjust the buffer size as needed
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        // Parse each line to extract data
+        char variable[50];
+        int value;
+        if (sscanf(buffer, "%[^=]=%d", variable, &value) == 2) {
+            if (strcmp(variable, "level") == 0) {
+                session->player.level = value;
+            } else if (strcmp(variable, "score") == 0) {
+                session->player.score = value;
+            } else if (strcmp(variable, "lives") == 0) {
+                session->player.lives = value;
+            } else if (strcmp(variable, "emeralds") == 0) {
+                session->player.emeralds = value;
+            } else if (strcmp(variable, "total_emeralds") == 0) {
+                session->player.lives = value;
+            } else if (strcmp(variable, "golds") == 0) {
+                session->player.golds = value;
+            } else if (strcmp(variable, "positionx") == 0) {
+                session->player.position.x = value;
+            } else if (strcmp(variable, "positiony") == 0) {
+                session->player.position.y = value;
+            } 
+        }
+    }
+    nextLevel(session);
+    session->activity = RUNNING;
+
+    fclose(file);
+    return true;
+}
 
 void resetGame(Game *session) {
     session->player.level = 1;
@@ -17,9 +112,7 @@ void resetGame(Game *session) {
     session->activity = RUNNING;
 }
 
-
 void nextLevel(Game *session) {
-    session->player.position = initial_position;
     session->player.direction = DOWN;
     session->powered = false;
 }
@@ -104,27 +197,14 @@ bool LoadGameMap(int level, Game* session) {
         else {
             return false;
         }
-    }
-    
-    if (level > 1){
-        for(int i = 0; i < mole_num; i++){
-            session->moles[mole_num].isAlive = false;
-        }
-        
-        for (int y = 0; y < MAP_HEIGHT; y++) {
-            for(int x = 0; x < MAP_WIDTH; x++) {
-                session->map[y][x] = ' ';
-                session->minerals[y][x].type = EMPTY;
-            }
-        }
-    }
-    
+    }  
     for (int y = 0; y < MAP_HEIGHT; y++) {
         fgets(session->map[y], MAP_WIDTH+2, file);
         for(int x = 0; x < MAP_WIDTH; x++) {
             if (session->map[y][x] == 'J') {
                 initial_position.x = x * TILE_SIZE;
                 initial_position.y = y * TILE_SIZE;
+                session->player.position = initial_position;
                 session->map[y][x] = ' '; // Remove a posição inicial do jogador do mapa
             }
             else if (session->map[y][x] == 'T') {
@@ -155,6 +235,7 @@ bool LoadGameMap(int level, Game* session) {
         }
     }
     session->mole_num = mole_num;
+
     fclose(file);
     return true;
 }
@@ -163,19 +244,18 @@ void drawEndGameScreen(Game *session) {
     BeginDrawing();
     ClearBackground(RAYWHITE);
     if (session->activity == WON) {
-        DrawText("You won!", (MAP_WIDTH * TILE_SIZE)/2 - 100, (MAP_HEIGHT * TILE_SIZE)/2 - 50, 50, DARKGREEN);
+        DrawText("You won! :D", (MAP_WIDTH * TILE_SIZE)/2 - 120, (MAP_HEIGHT * TILE_SIZE)/2 - 70, 55, DARKGREEN);
     } else {
-        DrawText("You lost!", (MAP_WIDTH * TILE_SIZE)/2 - 100, (MAP_HEIGHT * TILE_SIZE)/2 - 50, 50, DARKPURPLE);
+        PlaySound(playerDeath);
+        DrawText("You lost! :(", (MAP_WIDTH * TILE_SIZE)/2 - 120, (MAP_HEIGHT * TILE_SIZE)/2 - 70, 55, DARKPURPLE);
     }
     DrawText(TextFormat("Final Score: %i", session->player.score), 
-                        (MAP_WIDTH* TILE_SIZE)/2 - 130, (MAP_HEIGHT * TILE_SIZE)/2 + 20, 40, BLACK);
+                        (MAP_WIDTH* TILE_SIZE)/2 - 135, (MAP_HEIGHT * TILE_SIZE)/2 + 20, 40, BLACK);
+    
+    DrawText(TextFormat("Level: %i", session->player.level), 
+                        (MAP_WIDTH* TILE_SIZE)/2 - 60, (MAP_HEIGHT * TILE_SIZE)/2 + 70, 40, BLACK);
     EndDrawing();
     WaitTime(5);
     CloseWindow();
     exit(0);
-}
-
-
-void UnloadGameMap(Game* session) {
-    // Libera recursos se necessário
 }

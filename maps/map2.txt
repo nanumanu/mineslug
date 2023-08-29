@@ -14,7 +14,7 @@
 # SEOSSS#   #  SSSS#  T ######
 # SS#S#S#   #  SSOSS A #   T #
 #      A   S#  SSSS#S  T SSO #
-#########  SS#  SSSS#  ########
+#########  SS#  SSSS#  #######
 # SSSOSS     A       A  SSSOS#
 # A SS#S T SSSESS  T    SSSSS#
 ##############################

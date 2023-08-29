@@ -11,6 +11,20 @@ extern Vector2 initial_position;
 #define PLAYER_VISIBILITY   3
 
 // Enums for directions, map objects, and game status
+
+typedef enum {
+    MENU_NONE,
+    MENU_MAIN,
+    MENU_SECONDARY
+} MenuState;
+
+typedef enum {
+    MENU_NEW_GAME,
+    MENU_LOAD_GAME,
+    MENU_SAVE_GAME,
+    MENU_BACK
+} MenuItem;
+
 typedef enum {
     UP,
     RIGHT,

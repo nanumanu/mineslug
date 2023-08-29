@@ -8,6 +8,9 @@ void nextLevel(Game *session);
 void resetGame(Game *session);
 void updateGame(Game *session);
 
+bool saveGame(const Game *session);
+bool loadGame(Game *session);
+
 bool LoadGameMap(int level, Game* session);
 bool DrawGameMap(Game session);
 void drawEndGameScreen(Game *session);

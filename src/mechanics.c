@@ -140,7 +140,6 @@ void updateMoles(Game *session) {
                 if(CheckCollisionRecs((Rectangle){newX, newY, TILE_SIZE, TILE_SIZE}, 
                                       (Rectangle){session->player.position.x, session->player.position.y, TILE_SIZE, TILE_SIZE})){
                     if(!session->player.lives){
-                        PlaySound(playerDeath);
                         session->activity = LOST;
                         return;
                     }
