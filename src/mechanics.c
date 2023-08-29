@@ -9,6 +9,7 @@ extern bool LoadGameMap(int level, Game* session);
 void checkNextLevel(Game *session) {
     if (session->player.emeralds == session->total_emeralds) {
         session->player.level += 1;
+        PlaySound(levelUp);
         if (LoadGameMap(session->player.level, session)) {
             nextLevel(session);
         } else {
@@ -29,6 +30,7 @@ void fireLaser(Game *session) {
         session->player.laser.position.x = session->player.position.x + 20;
         session->player.laser.direction = session->player.direction;
         session->player.laser.isActive = true;
+        PlaySound(laserShoot);
     }
 }
 
@@ -57,6 +59,7 @@ void updateLaser(Game *session) {
                                                              (Rectangle){session->moles[i].position.x, session->moles[i].position.y, TILE_SIZE, TILE_SIZE})) {
             session->moles[i].isAlive = false;
             session->player.laser.isActive = false; // Laser desativado após acertar uma toupeira
+            PlaySound(moleHit);
             return;
         }
     }
@@ -137,9 +140,11 @@ void updateMoles(Game *session) {
                 if(CheckCollisionRecs((Rectangle){newX, newY, TILE_SIZE, TILE_SIZE}, 
                                       (Rectangle){session->player.position.x, session->player.position.y, TILE_SIZE, TILE_SIZE})){
                     if(!session->player.lives){
+                        PlaySound(playerDeath);
                         session->activity = LOST;
                         return;
                     }
+                    PlaySound(moleHitPlayer);
                     session->player.lives -= 1;
                     session->player.position = initial_position;
                 }
@@ -184,5 +189,6 @@ void movePlayer(Game *session, int dx, int dy) {
         
         session->player.position.x = newX;
         session->player.position.y = newY;
+        PlaySound(playerMove);
     }
 }

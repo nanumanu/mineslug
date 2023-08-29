@@ -6,11 +6,25 @@
 #include "libs/mechanics.h"
 #include "libs/session.h"
 
+Sound laserShoot;
+Sound moleHit;
+Sound playerMove;
+Sound playerDeath;
+Sound levelUp;
+Sound moleHitPlayer; 
 
 int main() {
     // Inicialização do jogo
     const int screenWidth = MAP_WIDTH * TILE_SIZE;
     const int screenHeight = MAP_HEIGHT * TILE_SIZE;
+
+    InitAudioDevice();
+    laserShoot = LoadSound("sounds/laserShoot.wav");
+    moleHit = LoadSound("sounds/moleHit.wav");
+    playerMove = LoadSound("sounds/playerMove.wav");
+    playerDeath = LoadSound("sounds/playerDeath.wav");
+    levelUp = LoadSound("sounds/levelUp.wav");
+    moleHitPlayer = LoadSound("sounds/moleHitPlayer.wav");
 
     Game session;
     LoadGameMap(1, &session);
@@ -48,5 +62,12 @@ int main() {
 
     // Encerramento do jogo
     drawEndGameScreen(&session);
+    UnloadSound(laserShoot);
+    UnloadSound(moleHit);
+    UnloadSound(playerMove);
+    UnloadSound(playerDeath);
+    UnloadSound(levelUp);
+    UnloadSound(moleHitPlayer);
+    CloseAudioDevice();
     return 0;
 }

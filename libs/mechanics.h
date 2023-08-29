@@ -1,6 +1,13 @@
 #pragma once
 #include "structs.h"
 
+extern Sound laserShoot;
+extern Sound moleHit;
+extern Sound playerMove;
+extern Sound playerDeath;
+extern Sound levelUp;
+extern Sound moleHitPlayer; 
+
 void drawLaser(Game session);
 void fireLaser(Game *session);
 void updateLaser(Game *session);
