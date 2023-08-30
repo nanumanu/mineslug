@@ -136,7 +136,10 @@ int main() {
             drawLaser(session);
             drawObject(session.player.position, RED);
             for (int i = 0; i < session.mole_num; i++) {
-                if (session.moles[i].isAlive) {
+                int distx = (session.player.position.x - session.moles[i].position.x) / TILE_SIZE, 
+                    disty = (session.player.position.y - session.moles[i].position.y) / TILE_SIZE;
+                int distsqr = (distx * distx) + (disty * disty);
+                if (session.moles[i].isAlive && ((distsqr <= 81) || session.powered) ) {
                     drawObject(session.moles[i].position, PURPLE);
                 }
             }

@@ -13,6 +13,12 @@ extern Vector2 initial_position;
 // Enums for directions, map objects, and game status
 
 typedef enum {
+    CLEAR,
+    PARTIAL_FOG,
+    FULL_FOG
+} FogState;
+
+typedef enum {
     MENU_NONE,
     MENU_MAIN,
     MENU_SECONDARY
@@ -92,4 +98,5 @@ typedef struct game {
     Player player;
     Mole moles[MAX_TROPHIES];
     Mineral minerals[MAP_HEIGHT][MAP_WIDTH + 1];
+    FogState fogMap[MAP_HEIGHT][MAP_WIDTH + 1]; //fogMap array
 } Game;

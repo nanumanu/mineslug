@@ -183,7 +183,7 @@ void movePlayer(Game *session, int dx, int dy) {
         } else if (session->minerals[tileY][tileX].type == POWERUP && 
             session->minerals[tileY][tileX].coletado == false) {
             session->minerals[tileY][tileX].coletado = true;
-            session->powered = GetFPS() * 5;
+            session->powered = 30;
         }
         
         session->player.position.x = newX;

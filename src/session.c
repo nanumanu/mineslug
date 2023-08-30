@@ -152,119 +152,6 @@ bool loadGame(Game *session) {
 
     return true;
 }
-/*
-// Function to load the game state from a text file
-bool loadGame(Game *session) {
-    FILE *file = fopen("game.sav", "r");
-    
-    if (file == NULL) {
-        return false; // Failed to open the file
-    }
-
-    // Read and update game data from the file
-    int mapRow = 0, mineralRow = 0, map = 0, minerals = 0, mole_index = 0;
-    char buffer[256]; // Adjust the buffer size as needed
-    while (fgets(buffer, sizeof(buffer), file) != NULL) {
-        // Parse each line to extract data
-        char variable[256];
-        int value;
-        if (sscanf(buffer, "%[^=]=%d", variable, &value) == 2) {
-            if (strcmp(variable, "level") == 0) {
-                session->player.level = value;
-            } else if (strcmp(variable, "score") == 0) {
-                session->player.score = value;
-            } else if (strcmp(variable, "lives") == 0) {
-                session->player.lives = value;
-            } else if (strcmp(variable, "emeralds") == 0) {
-                session->player.emeralds = value;
-            } else if (strcmp(variable, "total_emeralds") == 0) {
-                session->total_emeralds = value;
-            } else if (strcmp(variable, "golds") == 0) {
-                session->player.golds = value;
-            } else if (strcmp(variable, "positionx") == 0) {
-                session->player.position.x = value;
-            } else if (strcmp(variable, "positiony") == 0) {
-                session->player.position.y = value;
-            } else if (strcmp(variable, "moles") == 0) {
-                session->mole_num = value;
-                mole_index = 0;
-                mapRow = 0;
-                while (fgets(buffer, sizeof(buffer), file) != NULL) {
-                    int mole_alive, mole_x, mole_y, mole_dir, mole_cng;
-                    
-                    if (sscanf(buffer, "mole_alive=%d mole_x=%d mole_y=%d mole_dir=%d mole_cng=%d",
-                               &mole_alive, &mole_x, &mole_y, &mole_dir, &mole_cng) == 5) {
-                        if (mole_index < value && value >= 0) {
-                            session->moles[mole_index].isAlive = mole_alive;
-                            session->moles[mole_index].position.x = mole_x;
-                            session->moles[mole_index].position.y = mole_y;
-                            session->moles[mole_index].direction = mole_dir;
-                            session->moles[mole_index].change = mole_cng;
-                        }
-                        mole_index++;
-                    }
-                    else if (sscanf(buffer, "mole_alive=%d", &mole_alive) == 1) {
-                        if (mole_index < value && value >= 0) {
-                            session->moles[mole_index].isAlive = mole_alive;
-                        }
-                        mole_index++;
-                    }
-                    else if (strcmp(buffer, "------\n") == 0) {
-                        map = 1;
-                        break;
-                    }
-                }
-            } else if (strcmp(variable, "mole_alive") == 0) {
-                session->mole_num = value;
-                if(value == 0)
-                    mole_index++;
-            } else if (strcmp(variable, "mole_x") == 0) {
-                session->moles[mole_index].position.x = value;
-            } else if (strcmp(variable, "mole_y") == 0) {
-                session->moles[mole_index].position.y = value;
-            } else if (strcmp(variable, "mole_dir") == 0) {
-                session->moles[mole_index].direction = value;
-            } else if (strcmp(variable, "mole_cng") == 0) {
-                session->moles[mole_index].change = value;
-                mole_index++;
-            } else if ((strcmp(buffer, "------\n") == 0) || map) {
-                mapRow = 0;
-                while (fgets(buffer, sizeof(buffer), file)) {
-                    if (mapRow < MAP_HEIGHT) {
-                        strncpy(session->map[mapRow], buffer, MAP_WIDTH);
-                        mapRow++;
-                    }
-                    
-                    if (strcmp(buffer, "---\n") == 0) {
-                        minerals = 1;
-                        break;
-                    }
-                    
-                }
-            } else if ((strcmp(buffer, "---\n") == 0) || minerals) {
-                mineralRow = 0;
-                while (fgets(buffer, sizeof(buffer), file) != NULL) {
-                    int min_type, min_x, min_y, min_sot, min_col;
-                    
-                    if (sscanf(buffer, "min_type=%d min_x=%d min_y=%d min_sot=%d min_col=%d",
-                               &min_type, &min_x, &min_y, &min_sot, &min_col) == 5) {
-                        if (mineralRow < MAP_HEIGHT && min_x >= 0 && min_x < MAP_WIDTH && min_y >= 0 && min_y < MAP_HEIGHT) {
-                            session->minerals[min_y][min_x].type = min_type;
-                            session->minerals[min_y][min_x].soterrado = min_sot;
-                            session->minerals[min_y][min_x].coletado = min_col;
-                        }
-                        mineralRow++;
-                    }
-                }
-            }
-        }
-    }
-    nextLevel(session);
-    session->activity = RUNNING;
-
-    fclose(file);
-    return true;
-}*/
 
 void resetGame(Game *session) {
     session->player.level = 1;
@@ -279,7 +166,7 @@ void resetGame(Game *session) {
 
 void nextLevel(Game *session) {
     session->player.direction = DOWN;
-    session->powered = false;
+    session->powered = 0;
 }
 
 bool DrawGameMap(Game session) {
@@ -287,39 +174,52 @@ bool DrawGameMap(Game session) {
     for (int y = 0; y < MAP_HEIGHT; y++) {
         for (int x = 0; x < MAP_WIDTH; x++) {
             Vector2 position = { x * TILE_SIZE, y * TILE_SIZE};
-            //if(Vector2Distance(session.player.position, (Vector2){x, y}) < 80 &&  || session.powered)) {
-                switch (session.map[y][x]) {
-                    case '#':
-                        // Desenhar parede indestrutivel
-                        drawObject(position, BLACK);
-                        break;
-                    case 'S':
-                        // Desenhar área soterrada
-                        drawObject(position, LIGHTGRAY);
-                        break;
-                    case 'E':
-                        // Desenhar esmeralda
-                        if(session.minerals[y][x].coletado);
-                        else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
-                        else drawObject(position, DARKGREEN);
-                        break;
-                    case 'O':
-                        // Desenhar ouro
-                        if(session.minerals[y][x].coletado);
-                        else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
-                        else drawObject(position, GOLD);
-                        break;
-                    case 'A':
-                        // Desenhar power-up
-                        if(!session.minerals[y][x].coletado)
-                            drawObject(position, SKYBLUE);
-                        break;
-                    default: break;
-                }
-            //}
-            //else {
-            //    drawObject(position, BLACK);
-            //}
+            int distx = ((session.player.position.x / TILE_SIZE) - x), 
+                disty = ((session.player.position.y / TILE_SIZE) - y);
+            int distsqr = (distx * distx) + (disty * disty);
+            switch (session.map[y][x]) {
+                case '#':
+                    // Desenhar parede indestrutivel
+                    drawObject(position, BLACK);
+                    break;
+                case 'S':
+                    // Desenhar área soterrada
+                    drawObject(position, LIGHTGRAY);
+                    break;
+                case 'E':
+                    // Desenhar esmeralda
+                    if(session.minerals[y][x].coletado);
+                    else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
+                    else drawObject(position, DARKGREEN);
+                    break;
+                case 'O':
+                    // Desenhar ouro
+                    if(session.minerals[y][x].coletado);
+                    else if(session.minerals[y][x].soterrado) drawObject(position, LIGHTGRAY);
+                    else drawObject(position, GOLD);
+                    break;
+                case 'A':
+                    // Desenhar power-up
+                    if(!session.minerals[y][x].coletado)
+                        drawObject(position, SKYBLUE);
+                    break;
+                default: break;
+            }
+            
+            if((distsqr <= 25) || session.powered) session.fogMap[y][x] = CLEAR;
+            else if(distsqr <= 81) session.fogMap[y][x] = PARTIAL_FOG;
+            else session.fogMap[y][x] = FULL_FOG;
+            
+            switch (session.fogMap[y][x]) {
+                case PARTIAL_FOG:
+                    DrawRectangle(position.x, position.y, TILE_SIZE, TILE_SIZE, Fade(BLACK, 0.5f));
+                    break;
+                case FULL_FOG:
+                    DrawRectangle(position.x, position.y, TILE_SIZE, TILE_SIZE, BLACK);
+                    break;
+                case CLEAR:
+                default: break;
+            }
         }
     }
 
